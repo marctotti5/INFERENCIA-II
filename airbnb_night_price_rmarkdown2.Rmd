@@ -1,0 +1,518 @@
+---
+title: "Data Wrangling & Exploration of Airbnb Barcelona's dataset"
+author: "Marc Pastor"
+date: "25th September 2020"
+output:
+  html_document: default
+  pdf_document: default
+theme: lumen
+---
+<style>
+pre {
+  font-size: 14px;
+}
+</style>
+
+
+## **The Data**
+The data has been obtained from [this project]("http://insideairbnb.com/get-the-data.html"). 
+In this website we can find a dataset with data related to airbnb apartments in several cities around the world.
+
+Since the dataset included a lot of variables, I have decided to load only those that seem more relevant
+```{r, message = FALSE, warning = FALSE, echo = FALSE}
+library(tidyverse)
+
+setwd("C:/Users/marct/Documents/CURSOS/PROJECTES/AIRBNB PRICE PREDICTION/DATA")
+
+airbnb_data <- read.csv("./barcelona.csv") %>% select(c("host_since", "host_response_time", 
+                                                             "host_response_rate", "host_acceptance_rate", "host_is_superhost", 
+                                                             "host_neighbourhood", "host_listings_count", "host_total_listings_count",
+                                                             "host_verifications", "host_has_profile_pic", "host_identity_verified",
+                                                             "neighbourhood", "city", "state",
+                                                             "smart_location", "country", "latitude", "longitude",
+                                                             "is_location_exact", "property_type", "room_type", "accommodates", "bathrooms", 
+                                                             "bedrooms", "beds", "bed_type", "amenities", "square_feet", "price", "security_deposit",
+                                                             "cleaning_fee", "guests_included", "extra_people", "minimum_nights", "maximum_maximum_nights",
+                                                             "has_availability", "availability_30", "availability_60", "availability_90", "availability_365",
+                                                             "number_of_reviews", "first_review", "last_review", "review_scores_rating", "review_scores_accuracy",
+                                                             "review_scores_cleanliness", "review_scores_checkin", "review_scores_communication", "review_scores_value",
+                                                             "requires_license", "instant_bookable", "is_business_travel_ready", "cancellation_policy",
+                                                             "require_guest_profile_picture", "require_guest_phone_verification", "calculated_host_listings_count",
+                                                             "calculated_host_listings_count_entire_homes", "calculated_host_listings_count_private_rooms",
+                                                             "calculated_host_listings_count_shared_rooms", "reviews_per_month"))
+
+```
+
+### **Airbnb Barcelona Dataset**
+This dataset contains 20864 rows (observations) and 60 columns, and as we can already see, some variables have very messy data, and this will require a lot of data wrangling. 
+```{r, results = "hide", message = FALSE}
+str(airbnb_data)
+```
+
+As a complement for the main dataset, I'll be using the *neighbourhoods_geojson* dataset, which provides geospatial information from barcelona and its airbnb apartments (such as longitude, latitude, polygons, etc):
+```{r, results = "hide", message = FALSE}
+library(rgdal)
+neighbourhoods_geojson <- rgdal::readOGR("C:/Users/marct/OneDrive - Tecnocampus Mataro-Maresme/Documentos/CURSOS/PROJECTES/AIRBNB PRICE PREDICTION/DATA/neighbourhoods.geojson")
+```
+
+## **Data Wrangling**
+First of all I load the lubridate package, which I use to convert the *host_since* variable, from a character to a date format. Then I extract the year from the variable I have just converted and reorder the data. 
+```{r, echo = TRUE, results = "hide", message = FALSE}
+library(lubridate)
+airbnb_data$host_since <- ymd(airbnb_data$host_since)
+airbnb_data$host_since_year <- year(airbnb_data$host_since)
+airbnb_data <- airbnb_data[, c(1, ncol(airbnb_data), 2 : (ncol(airbnb_data) - 1))] 
+```
+
+After that, I convert the *neighbourhood* column into a factor and realise that it has spelling mistakes.
+```{r,  warning = FALSE, message = FALSE}
+airbnb_data$neighbourhood <- airbnb_data$neighbourhood %>% as.factor() 
+levels(airbnb_data$neighbourhood)
+```
+
+Since I am catalan, I am able to correct the spelling mistakes.
+```{r,  warning = FALSE, message = FALSE}
+levels(airbnb_data$neighbourhood) <- c(""   ,                              "Camp d'en Grassot i Gràcia Nova", "Can Baró",                        
+                                       "Carmel"   ,                        "Ciutat Vella",                     "Diagonal Mar - La Mar Bella" ,    
+                                       "Dreta de l'Eixample"    ,          "Eixample"    ,                     "El Baix Guinardó",               
+                                       "El Besós i el Maresme"   ,        "El Bon Pastor" ,                   "El Born" ,                        
+                                       "El Camp de l'Arpa del Clot",       "El Clot"  ,                        "El Coll" ,                        
+                                       "El Congrés i els Indians" ,       "El Fort Pienc"  ,                  "El Gòtic" ,                      
+                                       "El Poble-sec"  ,                   "El Poblenou" ,                     "El Putget i Farró" ,             
+                                       "El Raval"  ,                       "Glòries - El Parc" ,              "Gràcia",                         
+                                       "Guinardó" ,                       "Horta"  ,                          "Horta-Guinardó"  ,               
+                                       "L'Antiga Esquerra de l'Eixample",  "La Barceloneta"   ,                "La Font d'en Fargues" ,           
+                                       "La Guineueta - Canyelles" ,        "La Maternitat i Sant Ramon" ,      "La Nova Esquerra de l'Eixample",  
+                                       "La Prosperitat"   ,                "La Sagrada Família",              "La Sagrera"  ,                    
+                                       "La Salut"    ,                     "La Teixonera",                     "La Trinitat Vella"  ,             
+                                       "La Vall d'Hebron"   ,              "La Verneda i La Pau" ,             "La Vila Olímpica" ,              
+                                       "Les Corts" ,                       "Les Tres Torres"   ,               "Montbau"  ,                       
+                                       "Navas"   ,                         "Nou Barris"  ,                     "Pedralbes" ,                      
+                                       "Porta"   ,                         "Provençals del Poblenou" ,        "Sant Andreu" ,                    
+                                       "Sant Andreu de Palomar"  ,         "Sant Antoni"   ,                   "Sant Genís dels Agudells" ,      
+                                       "Sant Gervasi - Galvany"  ,         "Sant Gervasi - la Bonanova",       "Sant Martí"    ,                 
+                                       "Sant Martí de Provençals",       "Sant Pere/Santa Caterina",         "Sants-Montjuïc"   ,              
+                                       "Sarrià "   ,                       "Sarrià -Sant Gervasi" ,            "Torre Baró"   ,                  
+                                       "Trinitat Nova"  ,                  "Turó de la Peira - Can Peguera",  "Vallcarca i els Penitents" ,      
+                                       "Verdum - Los Roquetes" ,           "Vila de Gràcia"     ,             "Vilapicina i la Torre Llobeta") 
+```
+
+This variables also need to be treated, since they have special characters such as *%* or *$*, or they have to be coded as boolean factors. Here we can see some of the values that I am about to modify:
+```{r}
+airbnb_data[1, c(4,5)]
+airbnb_data[1, c(30, 31, 32, 34)]
+airbnb_data[1, c(6, 11, 12, 20, 37, 51, 52, 53, 55, 56)]
+```
+
+
+Then I treat the previous variables that had special characters such as "%" or "$" using simple loops, and convert them into numeric variables. After that I substitute the "t" and "f" values from the boolean variables with TRUE and FALSE (respetively) and I convert them into factors through the last loop.
+```{r, warning = FALSE, message = FALSE}
+for(i in c(4, 5)){
+        airbnb_data[, i] <- as.numeric(gsub("%", "", airbnb_data[, i])) / 100
+}
+
+
+for(i in c(30, 31, 32, 34)){
+        airbnb_data[, i] <- as.numeric(gsub("\\$", "", airbnb_data[, i])) 
+}
+
+
+for(i in c(6, 11, 12, 20, 37, 51, 52, 53, 55, 56)){
+        airbnb_data[, i] <- gsub("t", "TRUE", airbnb_data[, i])
+        airbnb_data[, i] <- gsub("f", "FALSE", airbnb_data[, i])
+}
+```
+
+Now I create a list that I will use to spot strange values and NA's by converting all the variables in factors and copying the levels of the ith variable into the ith element of a list. I use the "jsonedit" function from the *listviewer* package in order to create an interactive and easy list. 
+```{r,  warning = FALSE, message = FALSE}
+airbnb_data_factor <- airbnb_data
+factor_list <- list()
+for(i in 1:ncol(airbnb_data_factor)){
+        airbnb_data_factor[, i] <- as.factor(airbnb_data_factor[, i])
+        factor_list <- lapply(airbnb_data_factor, levels)
+}
+
+library(listviewer)
+jsonedit(factor_list) 
+```
+
+After exploring this list I observe that the *host_verifications* and *amenities* columns need some treatment in order to be used in any statistical model (I need to create dummy variables with their values). This is an example of the format of this columns' values.
+
+```{r,  warning = FALSE, message = FALSE}
+airbnb_data$host_verifications[1]
+airbnb_data$amenities[1]
+
+```
+
+In the following chunk I create two dataframes, after deleting the strange or unuseful characters that I have spoted using the previous list. 
+```{r, warning = FALSE, message = FALSE}
+library(mgsub)
+library(stringr)
+
+host_verifications <- as.data.frame(mgsub(airbnb_data$host_verifications, c("\\[", "\\]", "\\,", "\\'") , c("", "", "", "")))
+amenities <- as.data.frame(mgsub(airbnb_data$amenities, c("\\{", "\\}", "\\,", "\\'", "\\[", "\\]", "\"", "\\/") , c("", "", "  ", "", "", "", "", "")))
+```
+
+
+Now I create two listes for each of the variables which I will use in the following loop. Since both variables (*host_verifications* and *amenities*) are dataframes of the same dimension, I create a loop iterating on the columns of *host_verifications*. This loop starts by splitting the ith row of the *host_verification* dataframe (and since str_split returns a list with only one element I subset the first element of each list) and saves this vector into the ith element of the output_list_verifications. Then I count the number of elements of the ith vector of the *output_list_verifications* list and associate this result to the ith vector of the *output_list_verifications_count*, which I will use later to see which is the vector with more components and create the dummy variables. 
+```{r, warning = FALSE, message = FALSE}
+output_list_verifications <- list()
+output_list_verifications_count <- list()
+output_list_amenities <- list()
+output_list_amenities_count <- list()
+for(i in 1:nrow(host_verifications)){
+        output_list_verifications[i] <- str_split(host_verifications[i, ], " ")[1]
+        output_list_verifications_count[i] <- length(output_list_verifications[[i]])
+        output_list_amenities[i] <- str_split(amenities[i, ], "  ")[1]
+        output_list_amenities_count[i] <- length(output_list_amenities[[i]])
+}
+
+```
+
+
+Now I extract the largest vector (the vector that contains more values) of the *output_list_verifications* list, by filtering the vector that has the highest value in the *output_list_verifications_count* list and save the result in *dummy_host_verifications_cols*. After that I create an empty dataframe called *dummy_host_verifications_df* (with the same rows than the original dataset *airbnb_data* and the number of columns from *dummy_host_verifications_cols*), and I repeat the same process for the *amenities* variable. Below you can see the *dummy_host_verifications_df*
+```{r, warning = FALSE, message = FALSE}
+
+dummy_host_verifications_cols <- output_list_verifications[[which.max(output_list_verifications_count)]] 
+dummy_host_verifications_df <- matrix(nrow = nrow(airbnb_data), ncol = length(dummy_host_verifications_cols)) %>% as.data.frame()
+colnames(dummy_host_verifications_df) <- dummy_host_verifications_cols
+
+dummy_amenities_cols <- output_list_amenities[[which.max(output_list_amenities_count)]] 
+dummy_amenities_df <- matrix(nrow = nrow(airbnb_data), ncol = length(dummy_amenities_cols)) %>% as.data.frame()
+colnames(dummy_amenities_df) <- dummy_amenities_cols
+
+head(dummy_host_verifications_df)
+```
+
+
+Finally I bind the new dataframes (*dummy_host_verifications_df* and *dummy_amenities_df*) to the original dataset (*airbnb_data*).
+```{r, warning = FALSE, message = FALSE}
+airbnb_data <- cbind(airbnb_data, dummy_host_verifications_df, dummy_amenities_df) 
+```
+
+Now I susbtitute the NA's with Yes (if the apartment has that verification or amenitie, and no if it doesn't). In this case I use a loop nested inside another loop (a loop for each list/variable), where the outer loop iterates over the length of the *output_list_verifications* / *output_list_amenities*  and the inner one over the dummy columns that I have just created (which I specified manually). If the name of the jth variable is in the lth vector of the output list, then the value of the ith row and jth column of the airbnb_data corresponds to "Yes" (meaning that the variable name appears in the list).
+```{r, warning = FALSE, message = FALSE}
+for(l in 1:length(output_list_verifications)){
+        for(j in 62:74){
+                if(colnames(airbnb_data)[j] %in% output_list_verifications[[l]]){
+                        airbnb_data[l, j] <- "Yes"
+                } else{
+                        
+                }
+        }
+}
+
+for(l in 1:length(output_list_amenities)){
+        for(j in 75:ncol(airbnb_data)){
+                if(colnames(airbnb_data)[j] %in% output_list_amenities[[l]]){
+                        airbnb_data[l, j] <- "Yes"
+                } else{
+                        
+                }
+        }
+}
+```
+
+Now I convert all the new columns into factors
+```{r, warning = FALSE, message = FALSE}
+for(j in 62:ncol(airbnb_data)){
+        for(i in 1:nrow(airbnb_data)){
+                if(is.na(airbnb_data[i, j]) == TRUE){
+                        airbnb_data[i, j] <- "No"
+                } 
+        }
+        airbnb_data[, j] <- factor(airbnb_data[, j], levels = c("Yes", "No"))
+}
+```
+
+I delete some unuseful variables, and create new ones: *days_since_host*, *days_since_first_review*, *days_since_last_review*, which will allow me to introduce the time component into the model, since the statistical methods I am about to use, don't deal well with dates and times.
+```{r, warning = FALSE, message = FALSE}
+airbnb_data$amenities <- NULL
+airbnb_data$host_verifications <- NULL
+airbnb_data$has_availability <- NULL
+airbnb_data$is_business_travel_ready <- NULL
+airbnb_data$days_since_host <- (today() - as.Date(airbnb_data$host_since)) %>% as.numeric()
+airbnb_data$days_since_first_review <- (today() - as.Date(airbnb_data$first_review)) %>% as.numeric()
+airbnb_data$days_since_last_review <- (today() - as.Date(airbnb_data$last_review)) %>% as.numeric()
+airbnb_data$host_since <- NULL
+airbnb_data$first_review <- NULL
+airbnb_data$last_review <- NULL
+airbnb_data$host_response_time <- NULL
+airbnb_data$host_listings_count <- NULL
+```
+
+Now I delete the NA's from these columns, which I will use to clean the other variables by substituting NA's and strange values with the mean (in case of numerical variables), or the mode (in case of categorical ones).
+```{r, warning = FALSE, message = FALSE}
+airbnb_data <- airbnb_data[complete.cases(airbnb_data$host_since_year) & complete.cases(airbnb_data$country) & complete.cases(airbnb_data$city), ] 
+```
+
+I use the same list as before to spot NA's, missing values and strange values:
+```{r, warning = FALSE, message = FALSE}
+airbnb_data_factor <- airbnb_data
+for(i in 1:ncol(airbnb_data_factor)){
+        airbnb_data_factor[, i] <- as.factor(airbnb_data_factor[, i])
+        factor_list <- lapply(airbnb_data_factor, levels)
+}
+
+library(listviewer)
+jsonedit(factor_list)
+```
+
+The strange values are : "", "N/A", NA, "-", "*", ".", "[no name]", ".". Firstly, I create a for nested in another for, which iterates over columns (j), rows(i) and patterns (k). If it detects that a value that is not N/A from the ith row and jth column, contains any of the k patterns, then it converts that value in NA. This conversion will come in handy in the following chunk codes. 
+```{r, warning = FALSE, message = FALSE}
+patterns <- c("N/A", "-", "*", "[no name]", ".", "")
+
+for(j in 1:ncol(airbnb_data)){
+        for(i in 1:nrow(airbnb_data)){
+                for(k in 1:length(patterns)){
+                        if(airbnb_data[i, j] == patterns[k] & !is.na(airbnb_data[i, j])){
+                                airbnb_data[i, j] <- NA
+                        }
+                }
+        }
+}
+```
+
+I load the *modeest* package in order to be able to apply the *mlv* function (which calculates the mode of a vector) and also the *stringr* library, which I'll use later. In this loop I iterate over columns (j) and rows(i). If the element from the ith row and jth column is NA, and is also a numeric value, it is substituted by the mean of the jth variable (after being filtered to the same year, country and city values of the ith row). If is NA and character or factor, then it is substituted by the mean of the jth variable (also after being filtered to the same year, country and city of the ith row).
+```{r, warning = FALSE, message = FALSE}
+library(modeest) 
+library(stringr)
+
+for(j in 1:ncol(airbnb_data)){
+        for(i in 1:nrow(airbnb_data)){
+                        if(is.na(airbnb_data[i, j]) == TRUE){
+                                if(is.numeric(airbnb_data[, j]) == TRUE){
+                                        airbnb_data[i, j] = median(airbnb_data[complete.cases(airbnb_data) & airbnb_data$host_since_year == airbnb_data[i, "host_since_year"]
+                                                                               & airbnb_data$country == airbnb_data[i, "country"] & airbnb_data$city == airbnb_data[i, "city"] , j])
+                                } else if(is.character(airbnb_data[, j]) == TRUE | is.factor(airbnb_data[, j]) == TRUE){
+                                        airbnb_data[i, j] = mlv(airbnb_data[complete.cases(airbnb_data) & airbnb_data$host_since_year == airbnb_data[i, "host_since_year"]
+                                                                             & airbnb_data$country == airbnb_data[i, "country"] & airbnb_data$city == airbnb_data[i, "city"], j])[1]
+                        }
+                }
+        }
+}
+```
+
+Then I filter out the possible NA's left (in case there is any NA left) and substitute the " " spaces from the column names with "_", using an easy loop. Finally I delete unuseful columns (mainly factor columns containing a single level), and convert the neighbourhood variable into a factor. 
+```{r, warning = FALSE, message = FALSE}
+airbnb_data <- airbnb_data[complete.cases(airbnb_data), ]
+for(i in 1:ncol(airbnb_data)){
+        colnames(airbnb_data)[i] <- gsub(" ", "_", colnames(airbnb_data)[i])
+}
+
+airbnb_data <- airbnb_data[, !duplicated(colnames(airbnb_data))] # we delete duplicated columns (because some dummy variables had very similar names and were detected by R as identical)
+
+airbnb_data <- airbnb_data[airbnb_data$city == "Barcelona", ] # I filter out possible other cities (since there was a row containing a different city value)
+airbnb_data$country <- NULL
+airbnb_data$state <- NULL
+airbnb_data$smart_location <- NULL
+airbnb_data$city <- NULL # since there's only one city (Barcelona)
+airbnb_data$requires_license <- NULL # since it is a factor with one level
+airbnb_data$neighbourhood <- as.factor(airbnb_data$neighbourhood)
+```
+
+## **Exploratory Data Analysis**
+
+First of all I check that there are no NA's left in the data:
+```{r, warning = FALSE, message = FALSE}
+airbnb_data[is.na(airbnb_data), ] %>% nrow()
+```
+
+Now I use str() and summary() to check the structure of the data again:
+```{r}
+str(airbnb_data)
+summary(airbnb_data)
+```
+
+
+Now I check the distribution of *price*, the variable that I will try to predict. I use the log of price, since it allows us to see the data in a more compact way. The shape seems pretty gaussian, but a little bit skewed to the left. The Average price is 101.5, the minimum 10 and the maximum about 1000 (all the prices are in USD Dollars)
+```{r, warning = FALSE, message = FALSE}
+ggplot(data = airbnb_data, aes(x = log(price))) + 
+        geom_histogram(binwidth = 0.5, color = "black", fill = "skyblue") + 
+        ggtitle("AirBnb Price per Night (Log scale)") + 
+        theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+              axis.title = element_text(hjust = 0.5, size = 12),
+              axis.text = element_text(size = 12)) + 
+        xlab("Log of Price per Night") + ylab("Number of apartments")
+```
+
+### **Categorical variables **
+
+In this section I will be exploring some categorical variables, as well as their relationship with *price*, the variable I am intended to predict. First I aggregate the data to take the average night price by neighbourhood. Then I subtract the first row, since the value is clearly an outlier with an average price of $800 per night. 
+```{r, warning = FALSE, message = FALSE}
+night_neighbourhood <- airbnb_data %>% group_by(neighbourhood) %>% summarize(avg_night_price = mean(price)) %>% arrange(desc(avg_night_price))
+night_neighbourhood <- night_neighbourhood[-1, ] # first row is clearly an outlier
+```
+
+Now I plot the average price per night of the 10 most expensive (up) and the 10 cheapest  (down) neighbourhoods in Barcelona  
+```{r, warning = FALSE, message = FALSE, fig.align="center"}
+ggplot(night_neighbourhood[1:10, ], aes(x = reorder(neighbourhood, avg_night_price),  y = avg_night_price, 
+                                        fill = avg_night_price)) + 
+        geom_bar(stat = "identity") + ggtitle("Top 10 most expensive neighbourhoods") + 
+        theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+              axis.title = element_text(hjust = 0.5, size = 12),
+              axis.text = element_text(size = 12)) + scale_y_continuous(labels = function(x) paste0("$", x)) +
+        xlab("") + ylab("Airbnb Price per Night") + coord_flip() + theme(legend.position = "none") + scale_fill_gradient(low = "yellow", high = "red")
+
+ggplot(night_neighbourhood[(nrow(night_neighbourhood) - 10) : nrow(night_neighbourhood), ], aes(x = reorder(neighbourhood, avg_night_price),  y = avg_night_price, 
+                                        fill = avg_night_price)) + 
+        geom_bar(stat = "identity") + ggtitle("Top 10 cheapest neighbourhoods") + 
+        theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+              axis.title = element_text(hjust = 0.5, size = 12),
+              axis.text = element_text(size = 12)) + scale_y_continuous(labels = function(x) paste0(x, "$")) +
+        xlab("Neighbourhood") + ylab("Airbnb Price per Night") + coord_flip() + theme(legend.position = "none") + scale_fill_gradient(low = "green",  high = "blue")
+
+
+```
+
+In order to see all this insights clearly, I create a map, using the geospatial data from Barcelona, which I will obtain from the *neighbourhoods_geojson* dataset. This geospatial data is loaded as a "SpatialPolygonsDataFrame", which is a kind of dataframe that includes polygons, which are used to create maps in R. This dataset includes a dataframe containing the neighbourhoods, as well as the spatial polygons:
+```{r, warning = FALSE, message = FALSE}
+summary(neighbourhoods_geojson) 
+```
+
+Now I correct the misspellings and convert the variable *neighbourhood* of the dataframe *data* of *neighbourhoods_geojson* into a factor. Then I join this *data* with the *night_neighbourhood* dataframe I created previously, and use a loop to substitute the missing values of the price variable, with the mean of the available ones. This way, I obtain a dataset with each neighbourhood, its spatial polygons and its average night price. 
+```{r, warning = FALSE, message = FALSE}
+neighbourhoods_geojson@data$neighbourhood <- as.factor(neighbourhoods_geojson@data$neighbourhood)
+levels(neighbourhoods_geojson$neighbourhood) <- c("Baró de Viver" ,                               "Can Baró" ,                                   
+                                                  "Can Peguera" ,                                  "Canyelles",                                    
+                                                  "Ciutat Meridiana"   ,                           "Diagonal Mar i el Front Marítim del Poblenou",
+                                                  "El Baix Guinardó"  ,                           "El Barri Gòtic"    ,                          
+                                                  "El Besós i el Maresme",                        "El Bon Pastor"   ,                             
+                                                  "El Camp d'en Grassot i Gràcia Nova" ,          "El Camp de l'Arpa del Clot"  ,                 
+                                                  "El Carmel"       ,                              "El Clot"  ,                                    
+                                                  "El Coll"   ,                                    "El Congrés i els Indians"   ,                 
+                                                  "El Fort Pienc" ,                                "El Guinardó"  ,                               
+                                                  "El Parc i la Llacuna del Poblenou" ,            "El Poble Sec"  ,                               
+                                                  "El Poblenou"   ,                                "El Putxet i el Farró"  ,                      
+                                                  "El Raval"   ,                                   "El Turó de la Peira",                         
+                                                  "Horta"    ,                                     "Hostafrancs" ,                                 
+                                                  "L'Antiga Esquerra de l'Eixample" ,              "La Barceloneta" ,                              
+                                                  "La Bordeta"     ,                               "La Clota" ,                                    
+                                                  "La Dreta de l'Eixample"  ,                      "La Font d'en Fargues"  ,                       
+                                                  "La Font de la Guatlla"  ,                       "La Guineueta"    ,                             
+                                                  "La Marina de Port"  ,                           "La Marina del Prat Vermell",                   
+                                                  "La Maternitat i Sant Ramon" ,                   "La Nova Esquerra de l'Eixample" ,              
+                                                  "La Prosperitat"  ,                              "La Sagrada Família" ,                         
+                                                  "La Sagrera"   ,                                 "La Salut"   ,                                  
+                                                  "La Teixonera"   ,                               "La Trinitat Nova" ,                            
+                                                  "La Trinitat Vella"  ,                           "La Vall d'Hebron" ,                            
+                                                  "La Verneda i la Pau"  ,                         "La Vila de Gràcia",                           
+                                                  "La Vila Olímpica del Poblenou",                "Les Corts"    ,                                
+                                                  "Les Roquetes"  ,                                "Les Tres Torres",                              
+                                                  "Montbau" ,                                      "Navas",                                        
+                                                  "Pedralbes"   ,                                  "Porta"  ,                                      
+                                                  "Provençals del Poblenou"  ,                    "Sant Andreu"  ,                                
+                                                  "Sant Antoni"   ,                                "Sant Genís dels Agudells"  ,                  
+                                                  "Sant Gervasi - Galvany"  ,                      "Sant Gervasi - la Bonanova"  ,                 
+                                                  "Sant Martí de Provençals"  ,                  "Sant Pere, Santa Caterina i la Ribera",        
+                                                  "Sants"       ,                                  "Sants - Badal"    ,                            
+                                                  "Sarrià "    ,                                   "Torre Baró" ,                                 
+                                                  "Vallbona"    ,                                  "Vallcarca i els Penitents" ,                   
+                                                  "Vallvidrera, el Tibidabo i les Planes"   ,      "Verdun"  ,                                     
+                                                  "Vilapicina i la Torre Llobeta"  )         
+
+neighbourhoods_geojson@data <- left_join(neighbourhoods_geojson@data, night_neighbourhood[, 1:2]) %>% as.data.frame()
+
+for(i in 1:nrow(neighbourhoods_geojson@data)){
+        if(is.na(neighbourhoods_geojson@data[i, "avg_night_price"]) == TRUE){
+                neighbourhoods_geojson@data[i, 3] <- mean(neighbourhoods_geojson@data[complete.cases(neighbourhoods_geojson@data), 3])
+        } else if(is.na(neighbourhoods_geojson@data[i, "avg_night_price"]) == FALSE){
+        }
+}
+```
+
+I load the *leaflet* package to create an interactive map. This map shows the Average Airbnb Night Price by Neighbourhood in Barcelona. 
+```{r, warning = FALSE, message = FALSE, fig.align="center"}
+
+library(leaflet)
+pal <- colorNumeric(
+        palette = "YlGnBu",
+        domain = neighbourhoods_geojson@data$avg_night_price
+)
+
+
+price_per_neighbourhood <- leaflet(neighbourhoods_geojson) %>%
+        addTiles() %>% setView(lng = 2.1734, lat = 41.3851, zoom = 11.5) %>%
+        addPolygons(stroke = TRUE, fillColor = ~ pal(avg_night_price), fillOpacity = 0.8,
+                    highlight = highlightOptions(weight = 2,
+                                                 color = ~ pal(avg_night_price), 
+                                                 fillOpacity = 1,
+                                                 bringToFront = TRUE),
+                    label = ~neighbourhood,
+                    smoothFactor = 0.2,
+                    popup = ~ paste(paste(neighbourhood,":"), "<br/>","<b/>", paste("Avg Night Price: ", "$", round(avg_night_price)))) %>%
+        addLegend("bottomright", pal = pal, values = ~avg_night_price, opacity = 1.0, 
+                  title = "Average Airbnb Night Price",
+                  labFormat = labelFormat(prefix = "$"), na.label="")
+price_per_neighbourhood
+```
+As we can see, the most expensive neighbourhoods of Barcelona seem to be in the northwest and center parts of the city, and the cheapeast ones are most likely located in the northeast and south. This may be due to the presence of turistic attractions, mainly in the center (Plaça Catalunya, Portal de l'Àngel, Passeig de Gràcia) and others such as Sagrada Familia, where the average night price is $125.
+
+
+Now I create another map, this time based on the type of property:
+```{r, warning = FALSE, message = FALSE, fig.align="center"}
+pal3 <- colorFactor(palette = c(
+        "dodgerblue2", "#E31A1C", 
+        "green4",
+        "#6A3D9A", 
+        "#FF7F00", 
+        "black", "gold1",
+        "skyblue2", "#FB9A99", 
+        "palegreen2",
+        "#CAB2D6", 
+        "#FDBF6F", 
+        "gray70", "khaki2",
+        "maroon", "orchid1", "deeppink1", "blue1", "steelblue4",
+        "darkturquoise", "green1"), 
+        domain = airbnb_data$property_type)
+
+
+typeofproperty <- list()
+for (i in 1:length(levels(as.factor(airbnb_data$property_type)))) {
+        typeofproperty[[i]] <- airbnb_data %>% dplyr::filter(property_type == levels(as.factor(airbnb_data$property_type))[i])
+}
+names(typeofproperty) <- levels(as.factor(airbnb_data$property_type))
+
+typeofproperty_map <- leaflet() %>% addTiles() %>% setView(lng = 2.1734, lat = 41.3851, zoom = 13)
+
+for (i in 1:length(levels(as.factor(airbnb_data$property_type)))) {
+        typeofproperty_map <- typeofproperty_map %>% addCircles(data = typeofproperty[[i]], lat = ~latitude, 
+                                          lng = ~longitude, color = ~pal3(property_type), 
+                                          fillOpacity = 1, label = ~property_type, 
+                                          popup = ~price, group = levels(as.factor(airbnb_data$property_type))[i])
+}
+
+typeofproperty_map <- typeofproperty_map %>% addLegend(data = airbnb_data, "topleft", 
+                                                         pal = pal3, values = ~property_type, title = "Property Type", 
+                                                         opacity = 1, group = "Legend")
+
+groups <- c("Legend", levels(as.factor(airbnb_data$property_type)))
+typeofproperty_map <- typeofproperty_map %>% addLayersControl(overlayGroups = groups, 
+                                                              options = layersControlOptions(collapsed = TRUE))
+typeofproperty_map
+```
+Apartments are the most common Airbnb Property Types, being spread all over the city, condominiums lofts and aparthotels are also pretty extended.  
+
+### **Numerical variables **
+
+Now I check the correlations of price and the other numerical variables. 
+```{r, warning = FALSE, message = FALSE, fig.align="center", fig.height = 5, fig.width = 10}
+library(corrr)
+
+numeric_correlations <- select_if(airbnb_data, is.numeric) %>% correlate() %>% focus(price)
+
+numeric_correlations_plot <- ggplot(data = numeric_correlations, aes(x = reorder(rowname, price), y = price)) + 
+        geom_bar(aes(fill = price), stat = "identity") + 
+        scale_fill_gradient(low = "blue", high = "red") +
+        ggtitle("Correlation of price and the other numeric variables") +
+        theme(plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+              axis.title = element_text(hjust = 0.5, size = 14),
+              axis.text.x = element_text(size = 14, angle = 90),
+              legend.position = "none",
+              legend.title = element_blank()) + 
+        xlab("Numeric variable") + ylab("Correlation") + coord_flip()
+numeric_correlations_plot
+```
+The variables that seem to have more dependency on price are: *accomodates*, *bedrooms*, *beds* and *guests_included*. This means that these factors may affect the price more than other variables.
+
+
